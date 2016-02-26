@@ -9,19 +9,24 @@ Angular 1 has been discarded in favor of Google's new initiative, Angular 2 - le
 To ensure that you are ready to begin migrating your application, you will need to have NodeJS and JSPM installed, along with access to your AngularJS application.
 
 Migration will be simpler if your application is:
+
  1. using Angular's `controller as` syntax in views
  2. assigning properties to `this` instead of `$scope` in controllers
- 3. your angular modules are separated per file
+ 3. separated across files, using one file per Angular module
 
 ## The migration
 
+There are five main things we have to do to migrate an Angular application to Aurelia. **First**, we need to change the way we load our scripts, adhering to the SystemJS loader model. **Second**, we'll configure and bootstrap our application in Aurelia. **Third**, we'll migrate our modules from Angular's dependency injection to Aurelia's injection; **fourth**, we'll migrate our views and viewmodels to work with Aurelia. **Finally** (and this is the big one), we'll learn how to migrate Angular directives to Aurelia custom elements.
+
+It's recommended to start with the Aurelia Skeleton Navigation project, as loading and bootstrapping have already been provided.
+
 ### Loading script dependencies
 
-Some existing Angular applications use a loader such as RequireJS, but some applications load their scripts through script tags. Aurelia has been designed to adhere to the SystemJS loading specification; by default, it uses JSPM for package management, Babel for code compilation, and SystemJS for loading.
+First, we'll need to change the way we load our scripts. Some existing Angular applications use a loader such as RequireJS, but some applications load their scripts through script tags. Aurelia has been designed to adhere to the ES6 module loading specification; by default, it uses JSPM for package management, Babel for code compilation, and SystemJS for loading.
 
 ### Bootstrapping and configuring the application
 
-Angular applications typically bootstrap automatically, using the `ng-app` attribute on an HTML element to call a specific Angular module, like so:
+Second, we'll bootstrap and configure our application in Aurelia. Angular applications typically bootstrap automatically, using the `ng-app` attribute on an HTML element to call a specific Angular module, like so:
 
 ``` language-markup
 <!DOCTYPE html>
@@ -32,7 +37,7 @@ Angular applications typically bootstrap automatically, using the `ng-app` attri
 ...
 ```
 
-In comparison, because it uses ES6 modules, Aurelia defines no global variable. It does, however, use a similar attribute, like so:
+Aurelia uses a similar attribute that should feel familiar, like so:
 
 ``` language-markup
 <!DOCTYPE html>
@@ -47,7 +52,7 @@ In comparison, because it uses ES6 modules, Aurelia defines no global variable. 
 </body>
 ```
 
-Instead of a module name, the `aurelia-app` attribute takes a filename as its value (without the extension).
+Instead of a module name, the `aurelia-app` attribute takes a filename as its value (without the extension). Note that the attribute will never be on the root `html` tag.
 
 Configuring an Aurelia application at startup is slightly different than its Angular equivalent. Services in Aurelia can be configured at any time - not just at startup.
 
@@ -77,9 +82,7 @@ This means that certain important service configurations (especially routing and
 
 ### Using Modules and Dependency Injection
 
-Whether loaded through a loader or through generic script tags, Angular declares a global `angular` object.
-
-Like Aurelia, Angular supported modules and dependency injection. A user-defined service, however, had to be registered with the Angular global object at bootstrap time in order to be used. Finally, Angular made a distinction between `service`, `factory`,  `constant`, and `value` - all syntactic sugar for `provider`. All of this meant that code might look like the code below.
+Third step - we'll migrate our modules from Angular to Aurelia. Like Aurelia, Angular supported modules and dependency injection; whether loaded through a loader or through generic script tags, Angular declared a global `angular` object. However, using any module with Angular meant that it had to be registered with this global object at bootstrap time in order to be used. An example Angular configuration might look like the code below.
 
 ```language-javascript
 angular.module('myModule')
@@ -102,7 +105,7 @@ angular.module('myModule')
 	... // and so on
 ```
 
-Aurelia handles things a little differently. Instead of framework-specific modules, Aurelia leverages ES6 modules using the import statement. (These end up transpiled to AMD modules for browser use.) Additionally, Aurelia makes no special framework distinction between "services", "factories", and other module types, simplifying the way you can write your code.
+Aurelia handles things a little differently. Instead of framework-specific modules, Aurelia leverages ES6 modules using the import statement. (These end up transpiled to AMD modules for browser use.) Angular made a distinction between `service`, `factory`,  `constant`, and `value` - all syntactic sugar for `provider`. Aurelia, in contrast, makes no special framework distinction between "services", "factories", and other module types - everything is a Javascript module export, simplifying the way you can write your code.
 
 So, the angular code above ends up looking more like this:
 
@@ -137,6 +140,8 @@ As long as you define your exports semantically, Aurelia doesn't need to registe
 For more information on dependency injection, see the documentation here.
 
 ### Migrating your ViewModels
+
+Fourth, we'll migrate our viewmodels.
 
 In Angular, a controller must be registered with a specific name, using the `angular` global object.
 
@@ -174,6 +179,8 @@ code here
 
 ### Migrating your Views
 
+Fourth step, part two - we'll migrate the views.
+
 #### Naming Conventions
 
 In Angular, a view was often strongly coupled to a viewmodel (or controller) instance, using something similar to the following code:
@@ -196,7 +203,7 @@ Angular, by default, uses a double-bracket syntax for interpolation, like so:
 <div id="hello">Hello, my name is {{name}}!</div>
 ```
 
-Aurelia makes use of template strings in its templates, so the Aurelia version becomes this:
+Aurelia makes use of ES6 template strings in its templates, so the Aurelia version becomes this:
 
 ```language-markup
 <div id="hello">Hello, my name is ${name}!</div>
@@ -246,32 +253,22 @@ Aurelia:
 
 ### Converting Angular directives to Custom Elements and Attributes
 
+Finally, the meat and potatoes - it's time to migrate our Angular directives.
+
 Angular and Aurelia both support the concept of extending HTML by creating custom elements and attributes. However, Aurelia handles the creation of these in a different way.
 
-Custom elements in Angular require an Angular directive; we return a configuration object that tells Angular how to create our object through object properties including `scope`, `restrict`, `template`, `templateUrl`, and `link`.
+Custom elements in Angular required an Angular directive; we return a configuration object that tells Angular how to create our object through object properties including `scope`, `restrict`, `template`, `templateUrl`, and `link`.
 
 Instead of a configuration object, Aurelia takes a class instance.
 
-An Angular directive may look like this:
+An Angular directive may have looked like this:
 
 ```language-javascript
 angular.directive('display', ['$window', '$document', 'animate', function ($window, $document, animate) {
-	/* This directive is solely for view logic. */
 	return {
 		scope: true,
 		restrict: 'A',
-		template: [
-			'<div class="wrapper"></div>',
-			'<div class="horizon" style="background-position: 0px -{{bgPos(depth)}}px;">',
-				'<div class="inner" data-depth="{{depth | number:0}}" style="height: {{holeHeight(depth) || \'100%\'}}; width: {{holeWidth()}}px; background-position: 0px -{{bgPos(depth)}}px;">',
-					'<div data-ng-repeat="item in displayArray | orderBy:\'$index\':true track by $index" class="miniondiv" style="width: {{holeWidth()}}px;">',
-						'<span data-ng-repeat="count in ngArray(item.owned) track by $index">',
-							'<img class="{{item.name | lowercase}}" data-ng-src="dist/img/{{item.name | lowercase}}.svg" />',
-						'</span>',
-					'</div>',
-				'</div>',
-			'</div>'
-		].join('\n'),
+		templateUrl: 'myTemplate.html',
 		link: function (scope, element, attrs) {
 			var windowheight = angular.element($window).height();
 
@@ -294,7 +291,6 @@ angular.directive('display', ['$window', '$document', 'animate', function ($wind
 			scope.displayArray = [];
 
 			scope.$watch('shop', function () {
-				// This is fucking stupid, need to put ID properties on the shop stuff and make them arrays.
 				scope.displayArray = _.values(scope.shop).reverse();
 			});
 
